@@ -14,17 +14,45 @@ django.setup()
 
 
 class DatabaseMigrator:
-    def __init__(self, app_labels: List[str], batch_size=5000):
+    def __init__(self, app_labels: List[str], batch_size=5000, exclude_models: List[str] = None):
         self.app_labels = app_labels
+        self.exclude_models = exclude_models or []  # format: ['app_label.model_name', ...]
         self.processed_models: Set[Model] = set()
         self.dependency_graph = defaultdict(set)
         self.batch_size = batch_size
         self.build_dependency_graph()
 
+    def should_migrate_model(self, model: Model) -> bool:
+        """주어진 모델이 마이그레이션 대상인지 확인"""
+        model_identifier = f"{model._meta.app_label}.{model._meta.model_name}"
+
+        # 제외 목록에 있는 모델은 마이그레이션하지 않음
+        if model_identifier in self.exclude_models:
+            return False
+
+        # old_db에 테이블이 존재하는지 확인
+        with connections['old_db'].cursor() as cursor:
+            try:
+                cursor.execute(f"""
+                    SELECT EXISTS (
+                        SELECT 1 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_name = '{model._meta.db_table}'
+                    )
+                """)
+                exists = cursor.fetchone()[0]
+                return exists
+            except Exception as e:
+                print(f"Warning: Error checking table existence for {model_identifier}: {e}")
+                return False
+
     def run_migration(self):
         """전체 마이그레이션 프로세스를 실행하는 메인 메서드"""
         try:
             print(f"Starting database migration for apps: {', '.join(self.app_labels)}")
+            if self.exclude_models:
+                print(f"Excluding models: {', '.join(self.exclude_models)}")
             self.migrate_data()
             print("Migration completed successfully!")
         except Exception as e:
@@ -38,9 +66,14 @@ class DatabaseMigrator:
 
         print("\nMigration order:")
         for i, model in enumerate(migration_order, 1):
-            print(f"{i}. {model._meta.label}")
+            status = "SKIP" if not self.should_migrate_model(model) else "MIGRATE"
+            print(f"{i}. {model._meta.label} [{status}]")
 
         for model in migration_order:
+            if not self.should_migrate_model(model):
+                print(f"\nSkipping migration for {model._meta.label} (excluded or not in old database)")
+                continue
+
             print(f"\nStarting migration for {model._meta.label}...")
             if model.__name__ == 'Profile':
                 self.migrate_profile_data(model)
@@ -259,7 +292,10 @@ class DatabaseMigrator:
         for app_label in self.app_labels:
             try:
                 app_config = apps.get_app_config(app_label)
-                models.extend(app_config.get_models())
+                for model in app_config.get_models():
+                    model_identifier = f"{model._meta.app_label}.{model._meta.model_name}"
+                    if model_identifier not in self.exclude_models:
+                        models.append(model)
             except LookupError as e:
                 print(f"Warning: App '{app_label}' not found: {e}")
         return models
@@ -267,11 +303,13 @@ class DatabaseMigrator:
     def build_dependency_graph(self):
         """모델 간의 의존성 그래프를 생성"""
         for model in self.get_app_models():
-            for field in model._meta.fields:
-                if field.is_relation:
-                    related_model = field.remote_field.model
-                    if related_model._meta.app_label in self.app_labels:
-                        self.dependency_graph[model].add(related_model)
+            if self.should_migrate_model(model):  # 마이그레이션 대상 모델만 의존성 그래프에 포함
+                for field in model._meta.fields:
+                    if field.is_relation:
+                        related_model = field.remote_field.model
+                        if (related_model._meta.app_label in self.app_labels and
+                                self.should_migrate_model(related_model)):
+                            self.dependency_graph[model].add(related_model)
 
     def get_migration_order(self) -> List[Model]:
         """의존성을 고려한 마이그레이션 순서 반환"""
@@ -357,7 +395,7 @@ class DatabaseMigrator:
         return isinstance(field, (AutoField, BigAutoField))
 
 
-# 실행 코드
+# 마이그레이션 앱
 target_apps = [
     'contenttypes',  # 모델의 콘텐츠 타입 정보
     'auth',  # 사용자, 그룹, 권한 관리
@@ -369,5 +407,12 @@ target_apps = [
     'shop',
 ]
 
-migrator = DatabaseMigrator(app_labels=target_apps, batch_size=5000)
+# 마이그레이션에서 제외할 앱.모델 지정
+exclude_models = [
+    # 'shop.newmodel1',
+    # 'shop.newmodel2',
+    # 'member.newprofile'
+]
+
+migrator = DatabaseMigrator(app_labels=target_apps, batch_size=5000, exclude_models=exclude_models)
 migrator.run_migration()
