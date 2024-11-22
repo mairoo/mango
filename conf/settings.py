@@ -41,6 +41,9 @@ INSTALLED_APPS = [
 
 INSTALLED_APPS += [
     'easy_thumbnails',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
     'rakmai',
     'member',
     'shop',
@@ -54,6 +57,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # Add the account middleware:
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = 'conf.urls'
