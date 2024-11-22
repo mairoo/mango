@@ -405,6 +405,10 @@ target_apps = [
     'rakmai',
     'member',
     'shop',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'easy_thumbnails',
 ]
 
 # 마이그레이션에서 제외할 앱.모델 지정
