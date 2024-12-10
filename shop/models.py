@@ -1465,28 +1465,25 @@ class PurchaseOrderPayment(
         verbose_name_plural = _("purchase order payments")
 
 
+# 새로 추가하는 테이블 이관 시 주의
 class EmailTemplate(model_utils_models.TimeStampedModel):
     template_name = models.CharField(
         max_length=255,
         unique=True,
         verbose_name='템플릿 이름',
-        help_text='이메일 템플릿의 고유 식별자로 사용됩니다.'
     )
 
     html_content = models.TextField(
         verbose_name='HTML 내용',
-        help_text='이메일의 HTML 버전 템플릿입니다.'
     )
 
     text_content = models.TextField(
         verbose_name='텍스트 내용',
-        help_text='이메일의 텍스트 버전 템플릿입니다.'
     )
 
     subject = models.CharField(
         max_length=255,
         verbose_name='이메일 제목',
-        help_text='이메일의 제목 템플릿입니다.'
     )
 
     class Meta:
@@ -1496,3 +1493,30 @@ class EmailTemplate(model_utils_models.TimeStampedModel):
 
     def __str__(self):
         return self.template_name
+
+
+class Cart(model_utils_models.TimeStampedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("user"),
+        db_index=True,
+        null=True,
+        blank=True,
+        editable=True,
+        on_delete=models.SET_NULL,
+    )
+
+    cart_data = models.JSONField(
+        verbose_name=_("cart data"),
+        default=dict,
+        blank=True,
+    )
+
+    version = models.BigIntegerField(
+        verbose_name=_("version"),
+        default=0,
+    )
+
+    class Meta:
+        verbose_name = _("cart")
+        verbose_name_plural = _("carts")

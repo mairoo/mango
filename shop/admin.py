@@ -6,9 +6,9 @@ from .models import (EmailTemplate)
 
 @admin.register(EmailTemplate)
 class EmailTemplateAdmin(admin.ModelAdmin):
-    list_display = ['template_name', 'subject', 'created', 'updated']
+    list_display = ['template_name', 'subject', 'created', 'modified']
     search_fields = ['template_name', 'subject', 'html_content', 'text_content']
-    readonly_fields = ['created', 'updated']
+    readonly_fields = ['created', 'modified']
 
     fieldsets = (
         (None, {
@@ -19,7 +19,7 @@ class EmailTemplateAdmin(admin.ModelAdmin):
             'classes': ('wide',)
         }),
         ('시스템 정보', {
-            'fields': ('created', 'updated'),
+            'fields': ('created', 'modified'),
             'classes': ('collapse',)
         })
     )
