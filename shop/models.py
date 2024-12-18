@@ -1504,6 +1504,7 @@ class Cart(model_utils_models.TimeStampedModel):
         blank=True,
         editable=True,
         on_delete=models.SET_NULL,
+        unique=True,
     )
 
     cart_data = models.JSONField(
